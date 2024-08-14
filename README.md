@@ -1,13 +1,10 @@
 # Integration Blueprint
 
-[![GitHub Release][releases-shield]][releases]
 [![GitHub Activity][commits-shield]][commits]
 [![License][license-shield]](LICENSE)
 
 ![Project Maintenance][maintenance-shield]
-[![BuyMeCoffee][buymecoffeebadge]][buymecoffee]
 
-[![Discord][discord-shield]][discord]
 [![Community Forum][forum-shield]][forum]
 
 _Integration to integrate with [nudge_household][nudge_household]._
@@ -16,11 +13,15 @@ _Integration to integrate with [nudge_household][nudge_household]._
 
 Platform | Description
 -- | --
-`binary_sensor` | Show something `True` or `False`.
-`sensor` | Show info from blueprint API.
-`switch` | Switch something `True` or `False`.
+`sensor` | Show info from Budgets, Autarky Goal and Ranking
+`number` | Used for Scores,Streaks and Total Score .
 
 ## HACS Installation
+
+1. install the [HACS](https://hacs.xyz) store as described.
+1. add the link of this repository via Menu->Custom Repositories.
+1. search for the Nude Household in the HACS interface
+1. install the Nudge Household via the interface
 
 ## Manual Installation
 
@@ -43,8 +44,6 @@ If you want to contribute to this please read the [Contribution guidelines](CONT
 ***
 
 [nudge_household]: https://github.com/FreDj1996/nudge_household
-[buymecoffee]: https://www.buymeacoffee.com/FreDj1996
-[buymecoffeebadge]: https://img.shields.io/badge/buy%20me%20a%20coffee-donate-yellow.svg?style=for-the-badge
 [commits-shield]: https://img.shields.io/github/commit-activity/y/FreDj1996/nudge_household.svg?style=for-the-badge
 [commits]: https://github.com/FreDj1996/nudge_household/commits/main
 [discord]: https://discord.gg/Qa5fW2R
@@ -53,6 +52,6 @@ If you want to contribute to this please read the [Contribution guidelines](CONT
 [forum-shield]: https://img.shields.io/badge/community-forum-brightgreen.svg?style=for-the-badge
 [forum]: https://community.home-assistant.io/
 [license-shield]: https://img.shields.io/github/license/FreDj1996/nudge_household.svg?style=for-the-badge
-[maintenance-shield]: https://img.shields.io/badge/maintainer-Joakim%20Sørensen%20%40FreDj1996-blue.svg?style=for-the-badge
+[maintenance-shield]: https://img.shields.io/badge/maintainer-Frederik%20Jobst%20%40FreDj1996-blue.svg?style=for-the-badge
 [releases-shield]: https://img.shields.io/github/release/FreDj1996/nudge_household.svg?style=for-the-badge
 [releases]: https://github.com/FreDj1996/nudge_household/releases
