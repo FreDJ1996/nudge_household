@@ -5,8 +5,10 @@ default_config:
 homeassistant:
   debug: true
 
+demo:
+
 # https://www.home-assistant.io/integrations/logger/
 logger:
   default: info
   logs:
-    custom_components.integration_blueprint: debug
+    custom_components.nudge_household: debug

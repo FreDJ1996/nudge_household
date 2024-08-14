@@ -1,0 +1,70 @@
+{
+    "config": {
+        "step": {
+            "user": {
+                "title": "Haushaltsinfos",
+                "description": "Gib hier Informationen über deinen Haushalt an",
+                "data": {
+                    "name_household": "Name Haushalt",
+                    "number_persons":"Anzahl Personen",
+                    "heat_source": "Wärmequelle",
+                    "e_charger": "Wallbox E-Auto",
+                    "final_energy_consumption": "Endenergiebedarf",
+                    "apartment_size": "Quadratmeter Wohnung"
+                },
+                "data_description":
+                {
+                    "number_persons": "Anzahl der Personen im Haushalt",
+                    "heat_source": "Art der Energiequelle für Wärme",
+                    "e_charger": "Energiesensor für die E-Auto Wallbox",
+                    "final_energy_consumption": "Endenergiebedarf aus dem Energieausweis",
+                    "apartment_size": "Gesamtanzahl beheizte Quadratmeter der Wohnung"
+
+                }
+            },
+            "electricity":
+            {
+                "title": "Budget Stromverbrauch",
+                "description": "Erstelle ein Budget für den gesamten Stromverbrauch deines Haushalts, nehme zum Beispiel den Verbrauch des letzten Jahres und reduziere ihn um 10%",
+                "data":{
+                    "budget_yearly_electricity": "Jährliches Strom Budget",
+                    "budget_electricity_reduction_goal": "Jährliches Reduktionsziel Strom Budget"
+                }
+            },
+            "autarky": {
+                "title": "Autarkie Ziel Haushalt",
+                "description": "Gib den Zielwert für Autarkie in Prozent für den Haushalt an",
+                "data": {
+                    "goal_autarky": "Autarkie Ziel",
+                    "autarky_goal_increase": "Jährliche Steigerung Autarkie"
+                }
+            },
+            "heat": {
+                "title": "Budget Wärmeverbrauch",
+                "description": "Erstelle ein Budget für den gesamten Wärmeverbrauch deines Haushalts",
+                "data": {
+                    "budget_yearly_heat": "Jährliches Wärme Budget",
+                    "heat_pump": "Stromsensor Wärmepumpe",
+                    "budget_heat_reduction_goal": "Jährliches Reduktionsziel Wärme Budget"
+                }
+            },
+            "water": {
+                "title": "Budget Wassserverbrauch",
+                "description": "Erstelle ein Budget für den gesamten Wasserverbrauch deines Haushalts",
+                "data": {
+                    "budget_yearly_heat": "Jährliches Wasser Budget",
+                    "budget_water_reduction_goal": "Jährliches Reduktionsziel Wasser Budget"
+                }
+            }
+        },
+        "error": {
+            "energy_dashboard_not_configured": "Das Energie-Dashboard ist nicht konfiguriert. Bitte aktivieren Sie es in den Home Assistant-Einstellungen, bevor Sie fortfahren."
+        }
+        },
+        "device":{
+            "household_autarky": {
+                "name":  "Haushalt Autarkie"
+            }
+        }
+
+    }

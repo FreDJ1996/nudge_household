@@ -1,0 +1,22 @@
+set_ranking_position:
+  name: Set Ranking Position
+  description: Set Ranking Position of User
+  target:
+    entity:
+      domain: number
+      integration: nudgeplatform
+  fields:
+    ranking_position:
+      required: true
+    ranking_length:
+      required: true
+add_points_to_user:
+  name: Punkte Nutzer
+  description: Punkte zu Nutzer hinzufügen, wenn Nudge Ziel erreicht
+  target:
+    entity:
+      domain: number
+      integration: nudge_household
+  fields:
+    points:
+      required: true
