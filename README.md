@@ -1,4 +1,4 @@
-# Integration Blueprint
+# Nudge Household
 
 [![GitHub Activity][commits-shield]][commits]
 [![License][license-shield]](LICENSE)
@@ -15,6 +15,13 @@ Platform | Description
 -- | --
 `sensor` | Show info from Budgets, Autarky Goal and Ranking
 `number` | Used for Scores,Streaks and Total Score .
+
+## Content
+This integration is used to set budgets for electricity, water and gas in a household. A target for self-sufficiency can also be set. The sensors are automatically read from the Energy Dashboard. In addition to the budget, a reduction target can be set, which sets the budget each year based on last year's consumption, reduced by the reduction target.
+
+## Frontend
+The Custom [Bar Card](https://github.com/custom-cards/bar-card) or the Integrated [Gauge](https://www.home-assistant.io/dashboards/gauge/) are recommended for displaying the budget and the target. The integrated [Tile](https://www.home-assistant.io/dashboards/tile/) card is suitable for displaying the scores. If the sensors are to be tracked in detail, the Custom [History Explorer](https://github.com/SpangleLabs/history-explorer-card) Card is recommended.
+
 
 ## HACS Installation
 
