@@ -1,54 +1,41 @@
+"""Plattform for building Nudge Apps."""
+
 import logging
 from datetime import datetime, timedelta
+from enum import Enum, auto
 from typing import Final
 
 import homeassistant.components.energy.data as energydata
+import voluptuous as vol
+from homeassistant.components.number import NumberEntity, NumberMode, RestoreNumber
+from homeassistant.components.number.const import NumberDeviceClass
 from homeassistant.components.recorder.statistics import (
     statistics_during_period,
 )
 from homeassistant.components.recorder.util import get_instance
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.components.sensor.const import SensorStateClass
+from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import entity_platform, entity_registry
 from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.device_registry import (
+    async_get as async_get_device_registry,
+)
+from homeassistant.helpers.entity_registry import (
+    EntityRegistry,
+)
+from homeassistant.helpers.entity_registry import (
+    async_get as async_get_entity_registry,
+)
 from homeassistant.helpers.event import (
+    async_track_point_in_time,
     async_track_time_change,
 )
 from homeassistant.util import dt as dt_util
 
-from homeassistant.helpers import entity_registry
-
 _LOGGER = logging.getLogger(__name__)
-
-"""Constants for nudgeplatform."""
-
-from enum import Enum, auto
-
-from datetime import datetime
-from homeassistant.components.number import RestoreNumber, NumberMode, NumberEntity
-from homeassistant.components.number.const import NumberDeviceClass
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.device_registry import (
-    DeviceEntryType,
-    DeviceInfo,
-    async_get as async_get_device_registry,
-)
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.const import EntityCategory
-from homeassistant.helpers import entity_platform
-from homeassistant.helpers import config_validation as cv
-import voluptuous as vol
-from homeassistant.helpers.entity_registry import (
-    EntityRegistry,
-    async_get as async_get_entity_registry,
-)
-from homeassistant.const import Platform
-from homeassistant.helpers.event import (
-    async_track_point_in_time,
-)
-
-
 
 CONF_CHOOSE_ACTION = "action"
 
@@ -69,6 +56,8 @@ BADGES = [
 
 
 class NudgeType(Enum):
+    """Defines the different kinds of Nudges."""
+
     ELECTRICITY_BUDGET = auto()
     HEAT_BUDGET = auto()
     WATER_BUDGET = auto()
@@ -89,6 +78,8 @@ NUDGE_ICONS = {
 
 
 class NudgePeriod(Enum):
+    """Defines the Periods for the Budgets and Goals."""
+
     Daily = auto()
     Weekly = auto()
     Monthly = auto()
@@ -96,6 +87,8 @@ class NudgePeriod(Enum):
 
 
 class EnergyElectricDevices(Enum):
+    """Different kinds of Sensor Devices needed for Electricity Usage Calculation."""
+
     BATTERY_EXPORT = auto()
     BatteryImport = auto()
     SolarProduction = auto()
@@ -104,12 +97,15 @@ class EnergyElectricDevices(Enum):
     HeatPump = auto()
     ECharger = auto()
 
-def get_entity_from_uuid(hass:HomeAssistant, uuid:str, domain:str, platform:str)-> str|None:
+def get_entity_from_uuid(hass:HomeAssistant, uuid:str, domain:str,
+                         platform:str)-> str|None:
+    """Return the entity ID for a given Unique ID."""
     er = entity_registry.async_get(hass)
     return er.async_get_entity_id(platform=domain,domain=platform,unique_id=uuid)
 
 
 def get_start_time(nudge_period: NudgePeriod) -> datetime:
+    """Return the start time for a given Nudge Persiod."""
     now = dt_util.now()
     if nudge_period == NudgePeriod.Daily:
         start_time = now
@@ -132,9 +128,7 @@ def get_start_time(nudge_period: NudgePeriod) -> datetime:
 async def get_energy_entities(
     hass: HomeAssistant,
 ) -> tuple[dict[EnergyElectricDevices, str], str | None, str | None]:
-    # Autarkiegrad (%) = (Eigenverbrauch (kWh) / Gesamtverbrauch (kWh)) * 100
-    # Eigenverbrauch =  Batterie Export-Batterie Import + Solar Produktion - Strom Export
-    # Gesamtverbrauch = Eigenverbrauch + Strom Import
+    """Return the different Entities from the Energy Manager."""
     energy_manager = await energydata.async_get_manager(hass)
 
     energy_manager_data: energydata.EnergyPreferences | None = energy_manager.data
@@ -176,14 +170,15 @@ async def get_energy_entities(
 async def get_long_term_statistics(
     statistic_ids: set[str], period: NudgePeriod, hass: HomeAssistant
 ) -> dict[str, float]:
-    STATISTIC_PERIODS = {
+    """Return the sum of a set of sensors from the long-term statistics."""
+    statistics_period = {
         NudgePeriod.Daily: "day",
         NudgePeriod.Weekly: "week",
         NudgePeriod.Monthly: "month",
         NudgePeriod.Yearly: "month",
     }
 
-    statistic_period = STATISTIC_PERIODS[period]
+    statistic_period = statistics_period[period]
     start_time = get_start_time(period)
     end_time = None
     units = None
@@ -222,7 +217,8 @@ async def get_own_total_consumtion(
     period: NudgePeriod,
     hass: HomeAssistant,
 ) -> tuple[float, float]:
-    statistic_ids = {energy_entity for energy_entity in energy_entities.values()}
+    """Return the own consumtion and the total consumtion of the household."""
+    statistic_ids = set(energy_entities.values())
     entities_energy = {value: key for key, value in energy_entities.items()}
 
     stats = await get_long_term_statistics(
@@ -233,9 +229,13 @@ async def get_own_total_consumtion(
     for entity, value in stats.items():
         energy_values[entities_energy[entity]] += value
 
-    # Autarkiegrad (%) = (Eigenverbrauch (kWh) / Gesamtverbrauch (kWh)) * 100
-    # Eigenverbrauch =  Batterie Export-Batterie Import + Solar Produktion - Strom Export
-    # Gesamtverbrauch = Eigenverbrauch + Strom Import
+    # Degree of self-sufficiency (%) = (self-consumption (kWh) /
+    # total consumption (kWh)) * 100
+
+    # Self-consumption = battery export-battery import
+    # + solar production - electricity export
+
+    # Total consumption = self-consumption + electricity import
     own_consumption = (
         energy_values[EnergyElectricDevices.BATTERY_EXPORT]
         - energy_values[EnergyElectricDevices.BatteryImport]
@@ -249,10 +249,12 @@ async def get_own_total_consumtion(
 
 
 class Nudge(SensorEntity):
+    """Base Class for Budgets and Goals."""
+
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_should_poll = True
 
-    def __init__(
+    def __init__(  # noqa: D107, PLR0913
         self,
         entry_id: str,
         device_info: DeviceInfo,
@@ -276,12 +278,13 @@ class Nudge(SensorEntity):
         self._domain = domain
 
     async def async_added_to_hass(self) -> None:
-        # Jeden Abend die Punkte aktualisieren
+        """Update Points every evening."""
         if self._nudge_period == NudgePeriod.Daily:
             async_track_time_change(self.hass, self.send_points_to_user, second=59)
 
     @callback
-    async def send_points_to_user(self, now: datetime) -> None:
+    async def send_points_to_user(self, now: datetime) -> None:  # noqa: ARG002
+        """Service for sending points to a score/user."""
         if not self._score_entity:
             return
         points = 1 if self._goal_reached else 0
@@ -295,17 +298,18 @@ class Nudge(SensorEntity):
 
 
 class Budget(Nudge):
-    """Nudget For Person"""
+    """Budget for Nudging with goal and actual."""
 
     @staticmethod
     def calculate_goals(yearly_goal: float) -> dict[NudgePeriod, float]:
+        """Return the yearly goal divided into sub goals for every Nudge Period."""
         goals = {NudgePeriod.Yearly: yearly_goal}
         goals[NudgePeriod.Daily] = yearly_goal / 365
         goals[NudgePeriod.Weekly] = goals[NudgePeriod.Daily] * 7
         goals[NudgePeriod.Monthly] = goals[NudgePeriod.Yearly] / 12
         return goals
 
-    def __init__(
+    def __init__(  # noqa: D107, PLR0913
         self,
         entry_id: str,
         goal: float,
@@ -318,7 +322,6 @@ class Budget(Nudge):
         score_entity: str | None,
         energy_entities: dict[EnergyElectricDevices, str] | None = None,
         budget_entities: set[str] | None = None,
-        show_actual: bool = False,
     ) -> None:
         super().__init__(
             entry_id=entry_id,
@@ -331,7 +334,6 @@ class Budget(Nudge):
             domain=domain,
         )
         self._attr_unique_id = f"{entry_id}_{nudge_period.name}"
-        self._show_actual = show_actual
         self._actual = 0.0
         self._budget_entities = budget_entities
         self._energy_entities = energy_entities
@@ -347,15 +349,11 @@ class Budget(Nudge):
         attributes["actual"] = self._actual
         attributes["goal"] = self._goal
         attributes["actual/goal"] = f"{self._actual} kWh / {self._goal} kWh"
-        # TODO
-        if self._show_actual:
-            attributes["attribute"] = "actual"
-            attributes["unit_of_measurement"] = "kWh"
-            attributes["max"] = self._goal
 
         return attributes
 
     async def async_update(self) -> None:
+        """Update the actual value of the budget."""
         sum_budget = 0.0
         if self._budget_entities:
             stats = await get_long_term_statistics(
@@ -377,8 +375,16 @@ class Budget(Nudge):
         self._last_update = datetime.now(tz=dt_util.DEFAULT_TIME_ZONE)
         self.async_write_ha_state()
 
+    @callback
+    async def set_budget_with_history_data(self) -> bool:
+        """Use the reduction goal for setting a new budget."""
+        self._goal = int(
+            ((100 * self._goal) - (self._reduction_goal * self._goal)) / 100
+        )
+        return True
+
 def register_services() -> None:
-    # Register the service
+    """Register services for the Rank and score system."""
     platform = entity_platform.async_get_current_platform()
     platform.async_register_entity_service(
         SERVICE_SET_RANK_FOR_USER,
@@ -403,22 +409,11 @@ def register_services() -> None:
         SERVICE_UPDATE_STREAK,
     )
 
-    @callback
-    async def set_budget_with_history_data(self)-> bool:
-        self._goal = int(((100 * self._goal) - (self._reduction_goal * self._goal)) /100)
-        return True
-
-
-    async def async_added_to_hass(self) -> None:
-        now = datetime.now()
-        new_year = now.replace(
-            year=now.year + 1, month=1, day=1, hour=0, minute=0, second=0
-        )
-        async_track_point_in_time(self.hass, self.reset_score, new_year)
-
 
 
 class Streak(RestoreNumber):
+    """Gamification Feature that counts the number of days with achieved nudge."""
+
     _attr_has_entity_name = True
     _attr_name = None
     _attr_mode = NumberMode.BOX
@@ -430,6 +425,7 @@ class Streak(RestoreNumber):
         entry_id: str,
         device_info: DeviceInfo | None = None,
     ) -> None:
+        """Set up the Streak."""
         super().__init__()
         self._attr_device_info = device_info
         self._attr_native_value: int = 0
@@ -437,14 +433,17 @@ class Streak(RestoreNumber):
         self._attr_name = f"Streak {nudge_type.name.replace("_"," ").capitalize()}"
         self._attr_unique_id: str = f"{entry_id}_{nudge_type.name}_Streak"
 
-    async def update_streak(self, goal_reached: bool) -> None:
+    async def update_streak(self, goal_reached: bool) -> None:  # noqa: FBT001
+        """Calll from Score every evenig, to tell if nudge achieved."""
         if goal_reached:
             self._attr_native_value += 1
         else:
             self._attr_native_value = 0
 
     def get_unique_id(self) -> str:
+        """Return the unique ID of the Streak."""
         return self._attr_unique_id
+
 
 
 class Score(RestoreNumber):
@@ -464,6 +463,7 @@ class Score(RestoreNumber):
         domain:str,
         device_info: DeviceInfo | None = None,
     ) -> None:
+        """Set up Score Entity."""
         super().__init__()
         self._attr_device_info = device_info
         self.ranking_position = "0/0"
@@ -478,15 +478,18 @@ class Score(RestoreNumber):
     async def set_ranking_position(
         self, ranking_position: int, ranking_length: int
     ) -> None:
+        """Set ranking position from rank entity."""
         self.ranking_position = f"{ranking_position}/{ranking_length}"
 
-    async def add_points_to_score(self, goal_reached: bool) -> None:
+    async def add_points_to_score(self, goal_reached: bool) -> None:  # noqa: FBT001
+        """If nudge achieved, then add point to related score."""
         if goal_reached:
             self._attr_native_value += 1
         if not self._streak_entity_id:
             entity_registry = async_get_entity_registry(self.hass)
             self._streak_entity_id = entity_registry.async_get_entity_id(
-                platform=self._domain, domain=Platform.NUMBER, unique_id=self._streak_uuid
+                platform=self._domain, domain=Platform.NUMBER,
+                unique_id=self._streak_uuid
             )
 
         await self.hass.services.async_call(
@@ -497,10 +500,12 @@ class Score(RestoreNumber):
         )
 
     def get_unique_id(self) -> str:
+        """"Return the unique id for score entity."""
         return self._attr_unique_id
 
     @callback
     def reset_score(self, _: datetime) -> None:
+        """Reset the score to zero."""
         self._attr_native_value = 0
 
     @property
@@ -509,7 +514,8 @@ class Score(RestoreNumber):
         return {"rank": self.ranking_position}
 
     async def async_added_to_hass(self) -> None:
-        now = datetime.now()
+        """Register cron jobs and restore last state."""
+        now = datetime.now(tz=dt_util.DEFAULT_TIME_ZONE)
         new_year= now.replace(year=now.year+1,month=1,day=1,hour=0,minute=0,second=0)
         async_track_point_in_time(self.hass,self.reset_score,new_year)
         """Restore last state."""
@@ -528,6 +534,7 @@ class Score(RestoreNumber):
 
 
 class TotalScore(NumberEntity):
+    """Combines multiple scores form different NudgeTypes to one total Score."""
 
     _attr_has_entity_name = True
     _attr_name = None
@@ -541,6 +548,7 @@ class TotalScore(NumberEntity):
         entry_id: str,
         device_info: DeviceInfo | None = None,
     ) -> None:
+        """Set up total score."""
         super().__init__()
         self._attr_device_info = device_info
         self.ranking_position = "0/0"
@@ -553,12 +561,13 @@ class TotalScore(NumberEntity):
 
     @staticmethod
     def get_entity_ids_from_uuid(
-        entityRegistry: EntityRegistry, uuids: dict[NudgeType, str], domain: str
-    ):
+        entity_registry: EntityRegistry, uuids: dict[NudgeType, str], domain: str
+    ) -> dict[NudgeType, str]:
+        """Return entity ids for given uuids."""
         entity_ids: dict[NudgeType, str] = {}
 
         for nudgetype, uuid in uuids.items():
-            entity_id = entityRegistry.async_get_entity_id(
+            entity_id = entity_registry.async_get_entity_id(
                 platform=domain, domain=Platform.NUMBER, unique_id=uuid
             )
             if entity_id:
@@ -567,14 +576,16 @@ class TotalScore(NumberEntity):
         return entity_ids
 
     async def async_added_to_hass(self) -> None:
+        """Get entity ids from score unique ids."""
         entity_registry = async_get_entity_registry(self.hass)
         self._entity_ids = TotalScore.get_entity_ids_from_uuid(
-            entityRegistry=entity_registry,
+            entity_registry=entity_registry,
             uuids=self._entity_uuids_scores,
             domain=self._domain,
         )
 
     async def async_update(self) -> None:
+        """Go through the list of scores and sum up total score."""
         totalpoints: int = 0
         points_per_nudge: dict[NudgeType, int] = {}
         for nudge_type, score_entity in self._entity_ids.items():
@@ -592,29 +603,26 @@ class TotalScore(NumberEntity):
 
         self.async_write_ha_state()
 
-    def get_entities_for_device_info(self, device_info):
+    def get_entities_for_device_info(self, device_info: DeviceInfo) -> list:
         """Get all entities for a given device_info."""
         entity_registry = async_get_entity_registry(self.hass)
         device_registry = async_get_device_registry(self.hass)
-
-        # Suche das Gerät im Device Registry basierend auf den Identifikatoren
         device = None
+
+        identifiers = device_info.get("identifiers")
+        if identifiers is None:
+            return []
+
         for dev in device_registry.devices.values():
-            if any(
-                identifier in dev.identifiers
-                for identifier in device_info["identifiers"]
-            ):
+            if any(identifier in dev.identifiers for identifier in identifiers):
                 device = dev
                 break
 
         if device is None:
             return []
 
-        # Verwende die device_id des gefundenen Geräts, um die Entitäten zu ermitteln
-        entities = [
+        return [
             entry.entity_id
             for entry in entity_registry.entities.values()
             if entry.device_id == device.id
         ]
-
-        return entities
